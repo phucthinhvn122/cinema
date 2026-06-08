@@ -1,65 +1,149 @@
-import Image from "next/image";
+import React from 'react';
+import { getLatestUpdates, getCategoryList } from '@/lib/kkphim';
+import MovieSlider from '@/components/movie-slider';
+import MovieCard from '@/components/movie-card';
+import ContinueWatchingRow from '@/components/continue-watching-row';
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 
-export default function Home() {
+export const revalidate = 300; // Revalidate home page cache every 5 minutes
+
+export default async function HomePage() {
+  // Parallel Server Side Fetching
+  const [latestData, seriesData, moviesData, animeData] = await Promise.all([
+    getLatestUpdates(1),
+    getCategoryList('phim-bo', 1),
+    getCategoryList('phim-le', 1),
+    getCategoryList('hoat-hinh', 1),
+  ]);
+
+  // Use top 5 items for the main hero slider carousel
+  const sliderMovies = latestData.items.slice(0, 5);
+  // Remaining items are used for the main updates grid
+  const recentMovies = latestData.items.slice(5, 17);
+
+  const seriesMovies = seriesData.items.slice(0, 12);
+  const moviesMovies = moviesData.items.slice(0, 12);
+  const animeMovies = animeData.items.slice(0, 12);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="flex flex-col w-full pb-10">
+      {/* 1. Hero banner slider carousel */}
+      {sliderMovies.length > 0 && <MovieSlider movies={sliderMovies} />}
+
+      {/* 2. Client-side Continue Watching Row */}
+      <ContinueWatchingRow />
+
+      {/* 3. Recently updated grid section */}
+      {recentMovies.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white">
+              Phim mới cập nhật
+            </h2>
+            <Link
+              href="/category/phim-moi-cap-nhat"
+              className="text-accent hover:text-accent/80 text-xs font-semibold flex items-center gap-1 hover:underline"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <span>Xem tất cả</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {recentMovies.map((movie, index) => (
+              <MovieCard key={movie._id} movie={movie} index={index} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Series (Phim bộ) shelf section */}
+      {seriesMovies.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white">
+              Phim bộ mới nhất
+            </h2>
+            <Link
+              href="/category/phim-bo"
+              className="text-accent hover:text-accent/80 text-xs font-semibold flex items-center gap-1 hover:underline"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <span>Xem tất cả</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
+            {seriesMovies.map((movie, index) => (
+              <MovieCard
+                key={movie._id}
+                movie={movie}
+                index={index}
+                className="w-44 flex-shrink-0"
+              />
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {/* 5. Movies (Phim lẻ) shelf section */}
+      {moviesMovies.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white">
+              Phim lẻ đặc sắc
+            </h2>
+            <Link
+              href="/category/phim-le"
+              className="text-accent hover:text-accent/80 text-xs font-semibold flex items-center gap-1 hover:underline"
+            >
+              <span>Xem tất cả</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
+            {moviesMovies.map((movie, index) => (
+              <MovieCard
+                key={movie._id}
+                movie={movie}
+                index={index}
+                className="w-44 flex-shrink-0"
+              />
+            ))}
+          </div>
         </div>
-      </main>
+      )}
+
+      {/* 6. Anime shelf section */}
+      {animeMovies.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white">
+              Thế giới Anime
+            </h2>
+            <Link
+              href="/category/hoat-hinh"
+              className="text-accent hover:text-accent/80 text-xs font-semibold flex items-center gap-1 hover:underline"
+            >
+              <span>Xem tất cả</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
+            {animeMovies.map((movie, index) => (
+              <MovieCard
+                key={movie._id}
+                movie={movie}
+                index={index}
+                className="w-44 flex-shrink-0"
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

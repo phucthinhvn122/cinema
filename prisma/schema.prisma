@@ -1,0 +1,77 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model MovieCache {
+  id            String   @id @default(uuid())
+  kkphimId      String   @unique
+  tmdbId        String?
+  title         String
+  backdropUrl   String?
+  posterUrl     String?
+  overview      String?   @db.Text
+  cast          Json?     // Array of cast profiles
+  genres        Json?     // Array of genres
+  rating        Float?
+  year          Int?
+  episodesCount Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WatchHistory {
+  id          String   @id @default(uuid())
+  userId      String   @default("anonymous")
+  movieId     String
+  movieTitle  String
+  episodeId   String
+  episodeName String
+  currentTime Float
+  duration    Float
+  percentage  Float
+  server      String?
+  quality     String?
+  subtitle    String?
+  lastWatched DateTime @default(now())
+
+  @@unique([userId, movieId])
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  userId     String   @default("anonymous")
+  movieId    String
+  movieTitle String
+  posterUrl  String?
+  addedAt    DateTime @default(now())
+
+  @@unique([userId, movieId])
+}
+
+model Settings {
+  id         String   @id @default(uuid())
+  userId     String   @unique @default("anonymous")
+  autoPlay   Boolean  @default(true)
+  autoNext   Boolean  @default(true)
+  skipIntro  Boolean  @default(false)
+  skipEnding Boolean  @default(false)
+  quality    String   @default("1080p")
+  server     String   @default("Default")
+  subtitle   String   @default("vi")
+  tvMode     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Analytics {
+  id        String   @id @default(uuid())
+  movieId   String   @unique
+  playCount Int      @default(0)
+  viewCount Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
