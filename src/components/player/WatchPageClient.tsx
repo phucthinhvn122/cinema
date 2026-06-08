@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import CustomVideoPlayer from './CustomVideoPlayer';
+import CinematicPlayer from './cinematic-player';
 
 interface WatchPageClientProps {
   streamUrl: string;
@@ -34,7 +34,7 @@ export default function WatchPageClient({
   };
 
   return (
-    <CustomVideoPlayer
+    <CinematicPlayer
       streamUrl={streamUrl}
       movieTitle={movieTitle}
       movieId={movieId}

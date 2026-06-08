@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import MovieCard from '@/components/movie-card';
+import { motion } from 'framer-motion';
+import CinematicMovieCard from '@/components/cinematic-movie-card';
 import { KKMovieShort } from '@/lib/kkphim';
+import { Loader2 } from 'lucide-react';
 
 interface CategoryGridProps {
   initialItems: KKMovieShort[];
@@ -28,8 +30,6 @@ export default function CategoryGrid({ initialItems, slug, totalPages }: Categor
         if (newItems.length > 0) {
           setItems((prev) => [...prev, ...newItems]);
           setPage(nextPage);
-          
-          // Verify if there are more pages
           const currentTotalPages = data.pagination?.totalPages || totalPages;
           setHasMore(nextPage < currentTotalPages);
         } else {
@@ -39,7 +39,7 @@ export default function CategoryGrid({ initialItems, slug, totalPages }: Categor
         setHasMore(false);
       }
     } catch (err) {
-      console.error('Failed to load more category items:', err);
+      console.error('Failed to load more:', err);
     } finally {
       setLoading(false);
     }
@@ -47,35 +47,29 @@ export default function CategoryGrid({ initialItems, slug, totalPages }: Categor
 
   return (
     <div className="flex flex-col w-full">
-      {/* Cards Catalog Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-10">
         {items.map((movie, index) => (
-          <MovieCard key={`${movie._id}-${index}`} movie={movie} index={index} />
+          <CinematicMovieCard key={`${movie._id}-${index}`} movie={movie} index={index} />
         ))}
-        
-        {/* Shimmer loaders for pending page */}
         {loading &&
           [...Array(6)].map((_, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col bg-card rounded-xl overflow-hidden aspect-[2/3] border border-neutral-900/60 shimmer animate-in fade-in duration-300"
-            />
+            <div key={idx} className="flex flex-col rounded-xl overflow-hidden aspect-[2/3] bg-white/5 shimmer animate-fade-in-up" />
           ))}
       </div>
 
-      {/* Load More Button Trigger */}
       {hasMore && !loading && (
-        <button
-          id="load-more-category-btn"
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={loadMoreItems}
-          className="self-center bg-neutral-900 border border-neutral-800 text-white hover:bg-neutral-800 font-bold text-xs px-8 py-3.5 rounded-xl transition-all duration-200 shadow-md tv-focusable"
+          className="self-center bg-white/5 border border-white/10 text-white hover:bg-white/10 font-bold text-sm px-8 py-3.5 rounded-xl transition-all shadow-cinematic"
         >
           Xem thêm phim
-        </button>
+        </motion.button>
       )}
 
       {!hasMore && items.length > 0 && (
-        <p className="text-center text-text-muted text-xs font-semibold py-4 border-t border-neutral-950">
+        <p className="text-center text-text-muted text-xs font-medium py-4 border-t border-white/5">
           Bạn đã xem hết danh sách.
         </p>
       )}

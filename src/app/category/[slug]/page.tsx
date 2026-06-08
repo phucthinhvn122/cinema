@@ -7,24 +7,21 @@ interface CategoryPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const revalidate = 300; // Cache lists for 5 minutes
+export const revalidate = 300;
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params;
 
-  // Verify slug validity
   const validSlugs = ['phim-bo', 'phim-le', 'hoat-hinh', 'tv-shows', 'phim-moi-cap-nhat'];
   if (!validSlugs.includes(slug)) {
     notFound();
   }
 
-  // Define display headings
   let title = 'Danh sách phim';
   let description = 'Khám phá kho phim chất lượng cao Vietsub';
   let items: any[] = [];
-  let totalPages = 100; // Default buffer total pages
+  let totalPages = 100;
 
-  // Fetch initial page data
   if (slug === 'phim-moi-cap-nhat') {
     title = 'Phim Mới Cập Nhật';
     description = 'Danh sách phim điện ảnh và anime vừa được cập nhật tập mới nhất';
@@ -56,23 +53,17 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   return (
-    <div className="flex flex-col w-full pb-10 animate-in fade-in duration-300">
-      {/* Category Header Title */}
-      <div className="border-b border-neutral-900 pb-6 mb-8">
-        <h1 className="text-2xl md:text-3xl font-extrabold uppercase tracking-wider text-white">
-          {title}
-        </h1>
-        <p className="text-xs text-text-secondary mt-1 font-medium">
-          {description}
-        </p>
+    <div className="flex flex-col w-full pb-10 animate-fade-in-up">
+      <div className="border-b border-white/5 pb-6 mb-8">
+        <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">{title}</h1>
+        <p className="text-xs text-text-muted mt-1 font-medium">{description}</p>
       </div>
 
-      {/* Grid containing paginated movies */}
       {items.length > 0 ? (
         <CategoryGrid initialItems={items} slug={slug} totalPages={totalPages} />
       ) : (
-        <div className="text-center text-text-secondary py-16 bg-card border border-neutral-900 rounded-2xl">
-          Đang cập nhật danh mục phim. Vui lòng quay lại sau!
+        <div className="text-center text-text-muted py-16 glass-card rounded-2xl">
+          Đang cập nhật danh mục phim. Vui lòng quay lại sau.
         </div>
       )}
     </div>

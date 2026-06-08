@@ -1,6 +1,6 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
-import { Star, Clock, Calendar, User, Film, Tag } from 'lucide-react';
+import { Star, Clock, Calendar, User, Film, Tag, Play, Heart, Share2, ChevronRight } from 'lucide-react';
 import { getMovieDetail, getCategoryList, getImageUrl } from '@/lib/kkphim';
 import { getTMDBEnrichedData } from '@/lib/tmdb';
 import prisma from '@/lib/prisma';
@@ -8,9 +8,9 @@ import { Prisma } from '@prisma/client';
 import DetailResumeButton from '@/components/detail-resume-button';
 import DetailFavoriteButton from '@/components/detail-favorite-button';
 import DetailEpisodeList from '@/components/detail-episode-list';
-import MovieCard from '@/components/movie-card';
+import CinematicMovieCard from '@/components/cinematic-movie-card';
 
-export const revalidate = 600; // Cache individual details for 10 minutes
+export const revalidate = 600;
 
 export default async function MovieDetailPage({
   params,
@@ -19,7 +19,6 @@ export default async function MovieDetailPage({
 }) {
   const { id: slug } = await params;
 
-  // 1. Fetch primary movie metadata from KKPhim
   const kkData = await getMovieDetail(slug);
   if (!kkData) {
     notFound();
@@ -29,9 +28,8 @@ export default async function MovieDetailPage({
   const servers = kkData.episodes || [];
   const movieId = movie._id;
 
-  // 2. Try to get enriched details (DB cache first, then TMDB API)
+  // Enriched data
   let enriched: any = null;
-
   try {
     const cached = await prisma.movieCache.findUnique({
       where: { kkphimId: movieId },
@@ -47,7 +45,7 @@ export default async function MovieDetailPage({
       };
     }
   } catch (dbError) {
-    console.warn('Prisma cache lookup skipped during SSR details page: ', dbError);
+    console.warn('Prisma cache lookup skipped:', dbError);
   }
 
   if (!enriched && process.env.TMDB_API_KEY) {
@@ -72,166 +70,162 @@ export default async function MovieDetailPage({
           },
         });
       } catch (dbError) {
-        console.warn('Prisma cache write skipped: ', dbError);
+        console.warn('Prisma cache write skipped:', dbError);
       }
     }
   }
 
-  // Fallbacks if TMDB is not used
   const backdropUrl = enriched?.backdropUrl || getImageUrl(movie.thumb_url || movie.poster_url);
   const posterUrl = enriched?.posterUrl || getImageUrl(movie.poster_url || movie.thumb_url);
-  const rating = enriched?.rating || 7.8; // default fallback rating
+  const rating = enriched?.rating || 7.8;
   const overview = enriched?.overview || movie.content || 'Chưa có tóm tắt nội dung.';
-  const cast = enriched?.cast || (movie.actor && movie.actor.filter(a => a && a.trim() !== '')) || [];
+  const cast = enriched?.cast || (movie.actor && movie.actor.filter((a: string) => a && a.trim() !== '')) || [];
   const genres = enriched?.genres || movie.category?.map((c) => c.name) || [];
 
-  // 3. Query Recommendations (fetch similar type of content)
   let recommendations: any[] = [];
   if (enriched?.recommendations && enriched.recommendations.length > 0) {
-    // TMDB provided recommendations
     recommendations = enriched.recommendations;
   } else {
-    // Fallback: Fetch same category list (e.g. series, movie, or anime)
     let catType: 'phim-bo' | 'phim-le' | 'hoat-hinh' | 'tv-shows' = 'phim-bo';
     if (movie.type === 'single') catType = 'phim-le';
     if (movie.type === 'hoathinh') catType = 'hoat-hinh';
     if (movie.type === 'tvshows') catType = 'tv-shows';
 
     const catData = await getCategoryList(catType, 1);
-    // Exclude current movie
-    recommendations = catData.items
-      .filter((item) => item.slug !== slug)
-      .slice(0, 6);
+    recommendations = catData.items.filter((item) => item.slug !== slug).slice(0, 6);
   }
 
-  // Get the first episode slug to start play
   const firstEpisodeSlug = servers[0]?.server_data[0]?.slug || 'full';
 
   return (
-    <div className="flex flex-col w-full pb-20 relative -mt-20 -mx-4 md:-mx-6 lg:-mx-10 overflow-x-hidden">
-      
-      {/* 1. Backdrop Banner Background */}
-      <div className="absolute top-0 left-0 right-0 h-[45vh] md:h-[55vh] lg:h-[60vh] z-0 overflow-hidden">
+    <div className="flex flex-col w-full relative">
+      {/* 1. Full Backdrop Hero */}
+      <div className="relative w-full h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden">
         <img
           src={backdropUrl}
           alt={movie.name}
-          className="w-full h-full object-cover opacity-25 filter blur-[2px]"
+          className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-void/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-radial-accent" />
+        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-void/60 to-transparent" />
       </div>
 
-      {/* 2. Content Layout Details */}
-      <div className="relative z-10 pt-28 md:pt-40 px-4 md:px-6 lg:px-10 flex flex-col md:flex-row gap-6 md:gap-10">
-        
-        {/* Left Side: Poster */}
-        <div className="w-48 md:w-64 flex-shrink-0 self-center md:self-start bg-neutral-950 rounded-2xl overflow-hidden shadow-2xl border border-neutral-800 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <img
-            src={posterUrl}
-            alt={movie.name}
-            className="w-full h-auto aspect-[2/3] object-cover"
-          />
-        </div>
-
-        {/* Right Side: Movie metadata */}
-        <div className="flex-1 flex flex-col pt-4 animate-in fade-in slide-in-from-right-4 duration-300">
-          <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tight leading-none mb-3">
-            {movie.name}
-          </h1>
-          
-          {movie.origin_name && movie.origin_name !== movie.name && (
-            <h2 className="text-base md:text-lg text-text-secondary font-medium mb-4">
-              {movie.origin_name}
-            </h2>
-          )}
-
-          {/* Badges metadata bar */}
-          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-text-secondary mb-6">
-            {/* TMDB Rating */}
-            <div className="flex items-center gap-1 text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded-lg">
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <span>{rating.toFixed(1)}</span>
+      {/* 2. Content Overlay */}
+      <div className="relative z-10 -mt-[15vh] md:-mt-[20vh] lg:-mt-[25vh] px-4 md:px-8 lg:px-12 max-w-[1440px] mx-auto w-full">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-10 lg:gap-14">
+          {/* Floating Poster */}
+          <div className="w-40 md:w-52 lg:w-64 flex-shrink-0 self-center md:self-start">
+            <div className="relative rounded-2xl overflow-hidden shadow-cinematic animate-float group">
+              <img
+                src={posterUrl}
+                alt={movie.name}
+                className="w-full h-auto aspect-[2/3] object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-void/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="spotlight-border absolute inset-0 rounded-2xl pointer-events-none" />
             </div>
-            
-            {/* Year */}
-            <div className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{movie.year || '2026'}</span>
-            </div>
-
-            {/* Run time */}
-            {movie.time && (
-              <div className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{movie.time}</span>
-              </div>
-            )}
-
-            {/* Quality badge */}
-            {movie.quality && (
-              <span className="bg-neutral-850 px-2 py-0.5 rounded border border-neutral-700 text-white">
-                {movie.quality}
-              </span>
-            )}
-
-            {/* Audio lang */}
-            {movie.lang && (
-              <span className="bg-neutral-850 px-2 py-0.5 rounded border border-neutral-700 text-white">
-                {movie.lang}
-              </span>
-            )}
           </div>
 
-          {/* Action buttons (Resume and Favorite triggers) */}
-          <div className="flex flex-wrap items-center gap-4 mb-8">
-            <DetailResumeButton movieId={slug} defaultEpisodeSlug={firstEpisodeSlug} />
-            <DetailFavoriteButton movieId={slug} movieTitle={movie.name} posterUrl={movie.poster_url || movie.thumb_url} />
-          </div>
+          {/* Glass Panel Info */}
+          <div className="flex-1 min-w-0">
+            <div className="glass-panel rounded-2xl p-5 md:p-8 lg:p-10">
+              {/* Title */}
+              <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[0.95] mb-2 text-balance">
+                {movie.name}
+              </h1>
 
-          {/* Film Synopsis */}
-          <div className="mb-6">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-white mb-2">
-              Nội Dung Phim
-            </h3>
-            <p className="text-sm text-text-secondary leading-relaxed font-medium">
-              {overview.replace(/<\/?[^>]+(>|$)/g, "") /* Clean HTML Tags if returned in content */}
-            </p>
-          </div>
+              {movie.origin_name && movie.origin_name !== movie.name && (
+                <h2 className="text-base md:text-lg text-text-secondary font-medium mb-5">
+                  {movie.origin_name}
+                </h2>
+              )}
 
-          {/* Genres & Country list metadata */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs border-t border-neutral-900 pt-6">
-            <div>
-              <span className="text-text-muted font-bold block mb-1">Thể loại:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {genres.map((g: string) => (
-                  <span key={g} className="bg-neutral-900 border border-neutral-800 text-text-secondary px-2.5 py-1 rounded-lg">
-                    {g}
+              {/* Meta badges */}
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 px-2.5 py-1 rounded-lg">
+                  <Star className="w-3.5 h-3.5 fill-current" />
+                  <span className="text-xs font-bold">{rating.toFixed(1)}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-text-secondary text-xs">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{movie.year || '2026'}</span>
+                </div>
+
+                {movie.time && (
+                  <div className="flex items-center gap-1.5 text-text-secondary text-xs">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{movie.time}</span>
+                  </div>
+                )}
+
+                {movie.quality && (
+                  <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-1 rounded border border-white/10">
+                    {movie.quality}
                   </span>
-                ))}
+                )}
+
+                {movie.lang && (
+                  <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-1 rounded border border-white/10">
+                    {movie.lang}
+                  </span>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-3 mb-8">
+                <DetailResumeButton movieId={slug} defaultEpisodeSlug={firstEpisodeSlug} />
+                <DetailFavoriteButton movieId={slug} movieTitle={movie.name} posterUrl={movie.poster_url || movie.thumb_url} />
+                <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-all border border-white/10">
+                  <Share2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Chia sẻ</span>
+                </button>
+              </div>
+
+              {/* Synopsis */}
+              <div className="mb-6">
+                <p className="text-sm md:text-base text-text-secondary leading-relaxed font-medium">
+                  {overview.replace(/<\/?[^>]+(>|$)/g, '')}
+                </p>
+              </div>
+
+              {/* Genres & Cast */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs border-t border-white/5 pt-5">
+                <div>
+                  <span className="text-text-muted font-bold block mb-2 text-[10px] uppercase tracking-wider">Thể loại</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {genres.map((g: string) => (
+                      <span
+                        key={g}
+                        className="bg-white/5 border border-white/10 text-text-secondary px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {movie.director && movie.director.length > 0 && movie.director[0] !== '' && (
+                  <div>
+                    <span className="text-text-muted font-bold block mb-2 text-[10px] uppercase tracking-wider">Đạo diễn</span>
+                    <span className="text-white font-medium text-xs block">{movie.director.join(', ')}</span>
+                  </div>
+                )}
               </div>
             </div>
-
-            {movie.director && movie.director.length > 0 && movie.director[0] !== '' && (
-              <div>
-                <span className="text-text-muted font-bold block mb-1">Đạo diễn:</span>
-                <span className="text-white font-medium block mt-1">
-                  {movie.director.join(', ')}
-                </span>
-              </div>
-            )}
           </div>
-
         </div>
       </div>
 
-      {/* Subsections padding alignment wrapper */}
-      <div className="px-4 md:px-6 lg:px-10 space-y-12 relative z-10 mt-12 w-full">
-        {/* Trailer Section (If Trailer embed code exists) */}
+      {/* 3. Details Sections */}
+      <div className="max-w-[1440px] mx-auto w-full px-4 md:px-8 lg:px-12 mt-10 md:mt-14 space-y-10 md:space-y-14">
+        {/* Trailer */}
         {enriched?.trailerUrl && (
-          <div className="animate-in fade-in duration-300">
-            <h3 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white mb-4">
-              Trailer chính thức
-            </h3>
-            <div className="relative aspect-video w-full max-w-4xl bg-neutral-900 border border-neutral-900/60 rounded-2xl overflow-hidden shadow-xl">
+          <section>
+            <h3 className="text-lg md:text-xl font-bold text-white tracking-tight mb-4">Trailer chính thức</h3>
+            <div className="relative aspect-video w-full max-w-4xl rounded-2xl overflow-hidden bg-cinema-900 border border-white/5 shadow-cinematic">
               <iframe
                 src={enriched.trailerUrl}
                 title={`${movie.name} Official Trailer`}
@@ -240,43 +234,40 @@ export default async function MovieDetailPage({
                 className="absolute inset-0 w-full h-full border-0"
               />
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 3. Server / Episode Selection Row */}
-        <div>
-          <h3 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white mb-4">
-            Tập Phim
-          </h3>
+        {/* Episodes */}
+        <section>
+          <h3 className="text-lg md:text-xl font-bold text-white tracking-tight mb-4">Tập phim</h3>
           <DetailEpisodeList movieId={slug} servers={servers} />
-        </div>
+        </section>
 
-        {/* 4. Cast details section */}
+        {/* Cast */}
         {cast.length > 0 && (
-          <div>
-            <h3 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white mb-4">
-              Diễn viên
-            </h3>
+          <section>
+            <h3 className="text-lg md:text-xl font-bold text-white tracking-tight mb-4">Diễn viên</h3>
             <div className="flex flex-wrap gap-2">
               {cast.map((actor: string, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-850 hover:border-neutral-800 text-xs text-text-secondary font-bold select-none transition-colors">
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-text-secondary font-semibold hover:bg-white/10 hover:text-white transition-colors"
+                >
                   <User className="w-3.5 h-3.5 text-accent" />
                   <span>{actor}</span>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 5. Recommended / Related movies list */}
+        {/* Recommendations */}
         {recommendations.length > 0 && (
-          <div>
-            <h3 className="text-lg md:text-xl font-extrabold uppercase tracking-wider text-white mb-4">
-              Nội dung tương tự
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <section>
+            <h3 className="text-lg md:text-xl font-bold text-white tracking-tight mb-4">Nội dung tương tự</h3>
+            <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
               {recommendations.map((item, idx) => (
-                <MovieCard
+                <CinematicMovieCard
                   key={item.slug || item.id}
                   movie={{
                     _id: item.id || item._id,
@@ -290,31 +281,33 @@ export default async function MovieDetailPage({
                     lang: 'Vietsub',
                   }}
                   index={idx}
+                  size="md"
                 />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 6. Comments section placeholder */}
-        <div className="bg-card border border-neutral-900 rounded-2xl p-6">
+        {/* Comments placeholder */}
+        <section className="glass-panel rounded-2xl p-5 md:p-8">
           <h3 className="text-lg font-bold text-white mb-4">Bình luận</h3>
           <div className="flex gap-4">
-            <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center font-bold text-accent">U</div>
+            <div className="w-10 h-10 rounded-full bg-accent-soft flex items-center justify-center font-bold text-accent text-sm flex-shrink-0">
+              U
+            </div>
             <div className="flex-1">
               <textarea
                 placeholder="Chia sẻ suy nghĩ của bạn về bộ phim này..."
                 rows={3}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-xs focus:outline-none focus:border-accent text-white"
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-accent/50 text-white placeholder:text-text-muted resize-none"
               />
-              <button className="mt-2 bg-neutral-800 text-white hover:bg-accent hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200">
+              <button className="mt-2 bg-white/10 hover:bg-accent text-white hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all border border-white/10 hover:border-accent/50">
                 Gửi bình luận
               </button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
-
     </div>
   );
 }

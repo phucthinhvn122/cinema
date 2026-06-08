@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="h-full scroll-smooth">
-      <body className="min-h-full flex flex-col bg-background text-white select-none">
+      <body className="min-h-full flex flex-col bg-void text-white antialiased">
         <TVNavigationProvider>
           <LayoutShell>{children}</LayoutShell>
         </TVNavigationProvider>
